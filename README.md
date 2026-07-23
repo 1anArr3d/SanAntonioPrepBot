@@ -2,6 +2,8 @@
 
 SA PrepBot is an AI-powered emergency preparedness assistant for San Antonio residents. It answers questions about emergency supply kits, evacuation routes, shelters, severe weather alerts, and disaster preparedness using official City of San Antonio (COSA) sources — with verifiable citations.
 
+**Demo video:** see [DEMO_VIDEO.md](DEMO_VIDEO.md)
+
 ## MVP Scope
 
 **In Scope**
@@ -39,7 +41,7 @@ The system refuses if no relevant COSA source is retrieved, the question falls o
 | Frontend | Streamlit |
 | Backend | FastAPI (Python) |
 | RAG Pipeline | LlamaIndex + ChromaDB |
-| LLM | OpenAI `gpt-4o-mini` |
+| LLM | OpenAI `gpt-5.4-mini` |
 | Re-ranker | `cross-encoder/ms-marco-MiniLM-L-12-v2` |
 
 ## Data

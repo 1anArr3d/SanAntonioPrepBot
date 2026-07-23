@@ -1,0 +1,109 @@
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*urllib3.*")
+
+import asyncio
+import os
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field, field_validator
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from retrieval import load_index
+from generator import prepbot_query_engine, condense_question
+from citation_formatter import format_citations, REFUSAL_MSG
+
+import re
+import unicodedata
+
+def normalize_text(text: str) -> str:
+    return unicodedata.normalize("NFKC", text).strip()
+
+def remove_control_chars(text: str) -> str:
+    return re.sub(r"[\x00-\x1F\x7F]", "", text)
+
+def strip_html(text: str) -> str:
+    return re.sub(r"</?[a-zA-Z][^>]*>", "", text)
+
+def clean_whitespace(text: str) -> str:
+    return re.sub(r"\s+", " ", text)
+
+def sanitize_input(text: str) -> str:
+    text = normalize_text(text)
+    text = remove_control_chars(text)
+    text = strip_html(text)
+    text = clean_whitespace(text)
+    return text
+
+# Load index and engine once at startup — not on every request
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global engine
+    index = load_index()
+    engine = prepbot_query_engine(index)
+    print("SA PrepBot ready.")
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["POST"],
+    allow_headers=["*"],
+)
+
+engine = None
+
+
+MAX_QUESTION_LEN = 500   # characters
+MAX_HISTORY_TURNS = 10   # prior turns kept
+MAX_TURN_TEXT_LEN = 4000 # characters per turn
+
+
+class HistoryTurn(BaseModel):
+    role: str
+    text: str = Field(max_length=MAX_TURN_TEXT_LEN)
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v):
+        if v not in ("human", "bot"):
+            raise ValueError("Invalid role")
+        return v
+
+class AskRequest(BaseModel):
+    question: str = Field(max_length=MAX_QUESTION_LEN)
+    history: list[HistoryTurn] = Field(default_factory=list)
+
+    @field_validator("history")
+    @classmethod
+    def cap_history(cls, v):
+        # Keep only the most recent turns to limit prompt size
+        return v[-MAX_HISTORY_TURNS:]
+
+@app.post("/ask")
+async def ask(request: AskRequest):
+    try:
+        loop = asyncio.get_event_loop()
+
+        question = sanitize_input(request.question)
+        if not question:
+            return {"answer": REFUSAL_MSG, "sources": []}
+
+        history_dicts = [
+            {"role": t.role, "text": sanitize_input(t.text)}
+            for t in request.history
+        ]
+
+        question = await loop.run_in_executor(
+            None, condense_question, history_dicts, question
+        )
+
+        response = await loop.run_in_executor(None, engine.query, question)
+        return format_citations(response)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

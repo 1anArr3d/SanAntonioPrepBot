@@ -1,0 +1,11 @@
+# Security
+.env
+
+# Python junk
+__pycache__/
+*.py[cod]
+
+# Data & Database
+storage/
+data/
+.ipynb_checkpoints/

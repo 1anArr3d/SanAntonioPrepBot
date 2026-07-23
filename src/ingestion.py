@@ -75,7 +75,16 @@ def load_jsonl_data(jsonl_path):
     print(f"Loaded {len(documents)} documents from {jsonl_path}")
     return documents
 
+# Loads and concatenates every *.jsonl file in a directory (e.g. one file per
+# scrape/source batch) so the index can be built from multiple data drops at once.
+def load_jsonl_dir(dir_path):
+    documents = []
+    for file in sorted(os.listdir(dir_path)):
+        if file.endswith('.jsonl'):
+            documents.extend(load_jsonl_data(os.path.join(dir_path, file)))
+    return documents
+
 if __name__ == "__main__":
-    jsonl_path = '../data/cosa_data/emergency_prep.jsonl'
-    docs = load_jsonl_data(jsonl_path)
+    data_dir = '../data/cosa_data'
+    docs = load_jsonl_dir(data_dir)
     print(f"Sample: {docs[0].metadata}")

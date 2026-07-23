@@ -8,13 +8,15 @@ from llama_index.llms.openai import OpenAI
 from llama_index.core.llms import ChatMessage, MessageRole
 from retrieval import load_index
 
+LLM_MODEL = "gpt-5.4-mini"  # current small/cheap OpenAI model — update here as newer ones ship
+
 CANDIDATE_K = 20  # Initial retrieval pool for the re-ranker to select from
 TOP_K = 7         # Final chunks passed to the LLM after re-ranking
 
 # Sets up the engine that turns retrieved chunks into a final answer with citations
 def prepbot_query_engine(index):
 
-    Settings.llm = OpenAI(model="gpt-4o-mini", temperature=0)
+    Settings.llm = OpenAI(model=LLM_MODEL, temperature=0)
 
     # Custom prompt template for strict grounding
     qa_prompt_tmpl_str = (
@@ -61,7 +63,7 @@ def condense_question(history: list, question: str) -> str:
     if not history:
         return question
 
-    llm = OpenAI(model="gpt-4o-mini", temperature=0)
+    llm = OpenAI(model=LLM_MODEL, temperature=0)
 
     convo_lines = []
     for turn in history:

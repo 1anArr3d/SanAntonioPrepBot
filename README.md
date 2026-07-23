@@ -71,7 +71,7 @@ pip install -r requirements.txt
 
 ### 3. Add data and build the vector index
 
-Place your COSA JSONL data file(s) in `data/cosa_data/` (e.g. `data/cosa_data/emergency_prep.jsonl`), then build the index (first time only, and any time source data changes):
+Place your COSA JSONL data file(s) in `data/cosa_data/` — every `*.jsonl` file there is loaded and combined, so you can drop in multiple batches (e.g. `emergency_prep.jsonl`, `emergency_prep_sagov.jsonl`) side by side. Then build the index (first time only, and any time source data changes):
 
 ```bash
 cd src
@@ -99,6 +99,19 @@ streamlit run streamlit_app.py
 
 Open the URL Streamlit prints (default `http://localhost:8501`).
 
+## Data Collection
+
+`src/scrape_cosa.py` crawls City of San Antonio emergency-preparedness pages with [crawl4ai](https://github.com/unclecode/crawl4ai) (a real headless browser — needed because some COSA pages block plain HTTP fetches) and writes them out in the JSONL schema `ingestion.py` expects.
+
+```bash
+pip install -r requirements-scrape.txt
+crawl4ai-setup   # installs the Playwright browser crawl4ai drives
+
+python src/scrape_cosa.py
+```
+
+It does a single breadth-first crawl from a seed list of `sa.gov` pages, following only in-domain links whose URL looks preparedness-related, and skips pages that are mostly nav/boilerplate. Output goes to `data/cosa_data/emergency_prep_sagov.jsonl` by default (appended, not overwritten), alongside a `_url_tree_sagov.json` showing every URL visited and what happened to it. Tune scope with `--seeds`, `--domains`, `--path-keywords`, and `--max-pages`; run `python src/scrape_cosa.py --help` for the full list.
+
 ## Project Structure
 
 ```
@@ -109,6 +122,7 @@ sa-prepbot/
 │   ├── ingestion.py           # JSONL/markdown document loading
 │   ├── retrieval.py           # ChromaDB index build/load
 │   ├── citation_formatter.py  # Citation extraction, refusal handling
+│   ├── scrape_cosa.py         # crawl4ai-based COSA site crawler → JSONL
 │   └── storage/                # ChromaDB persisted index (gitignored)
 ├── streamlit_app.py           # Streamlit chat frontend
 ├── data/
@@ -116,6 +130,7 @@ sa-prepbot/
 ├── tests/
 │   └── test_rag.py            # Grounded + refusal test cases
 ├── requirements.txt
+├── requirements-scrape.txt    # crawl4ai — only needed for scrape_cosa.py
 ├── .env.example
 ├── .gitignore
 └── README.md
